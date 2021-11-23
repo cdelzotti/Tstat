@@ -38,6 +38,7 @@ Bool is_tls_apple(tcp_pair *ptp_save);
 Bool is_tls_instagram(tcp_pair *ptp_save);
 Bool is_tls_uclouvain(tcp_pair *ptp_save);
 Bool is_tls_reddit(tcp_pair *ptp_save);
+Bool is_tls_github(tcp_pair *ptp_save);
 
 enum service_names {
     FACEBOOK_S = 0,
@@ -50,6 +51,7 @@ enum service_names {
     INSTAGRAM_S,
     UCLOUVAIN_S,
     REDDIT_S,
+    GITHUB_S,
     LAST_S
 };
 
@@ -152,6 +154,12 @@ void init_services_tls_sni_patterns()
   tls_sni_s_index[REDDIT_S] = i;
   regcomp(&services_tls_sni_re[i++],"\\.reddit\\.com$",REG_NOSUB);
   tls_sni_e_index[REDDIT_S] = i-1;
+
+  /* Github */
+  
+  tls_sni_s_index[GITHUB_S] = i;
+  regcomp(&services_tls_sni_re[i++],"\\github\\.com$",REG_NOSUB);
+  tls_sni_e_index[GITHUB_S] = i-1;
 }
 
 void init_services_tls_cn_patterns()
@@ -396,6 +404,25 @@ Bool is_tls_reddit(tcp_pair *ptp_save)
  return FALSE;
 }
 
+Bool is_tls_github(tcp_pair *ptp_save)
+{
+  int idx;
+
+  if (!(ptp_save->con_type & SSL_PROTOCOL))
+    return FALSE;
+
+  if (ptp_save->ssl_client_subject!=NULL)
+   {
+     for (idx = tls_sni_s_index[GITHUB_S]; idx <= tls_sni_e_index[GITHUB_S]; idx++)
+      {
+        if (regexec(&services_tls_sni_re[idx],ptp_save->ssl_client_subject,0,NULL,0)==0) 
+          return TRUE;
+      }
+   }
+   
+ return FALSE;
+}
+
 void map_tls_service(tcp_pair *ptp)
 {
 //  printf("Yeah, TLS! %s!\n",(ptp->ssl_client_subject!=NULL ? ptp->ssl_client_subject:"--"));
@@ -439,6 +466,10 @@ void map_tls_service(tcp_pair *ptp)
   else if (is_tls_reddit(ptp))
    {
      ptp->tls_service = TLS_REDDIT;
+   }
+  else if (is_tls_github(ptp))
+   {
+     ptp->tls_service = TLS_GITHUB;
    }
 /* 
   Another possible idea: there might be a catch-all matching for CDNs like Akamai to be matched if 

@@ -647,7 +647,9 @@ enum tls_category
   TLS_MICROSOFT,      /* 6 - Microsoft services (Live.com) 		*/
   TLS_APPLE,          /* 7 - Apple and iCloud 				*/
   TLS_INSTAGRAM,      /* 8 - Instagram 					*/
-  TLS_UCLOUVAIN,      /* 9 - UCL Traffic */
+  TLS_UCLOUVAIN,      /* 9 - UCLouvain */
+  TLS_REDDIT,         /* 10 - Reddit */
+  TLS_GITHUB,         /* 11 - Github */
   TLS_LAST_TYPE
 };
 
