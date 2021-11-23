@@ -122,8 +122,8 @@ Increase this number on high speed network will help ...*/
    and HISTOGRAM are updated.
    
 */
-#define MAX_TIME_STEP 300000000.0     // 5min
-//#define MAX_TIME_STEP 60000000.0      // 1min
+//#define MAX_TIME_STEP 300000000.0     // 5min
+#define MAX_TIME_STEP 60000000.0 /60    // 1min
 //#define MAX_TIME_STEP 30000000.0      // 30sec
 /* 300000000 = 5 min */
 /* 900000000 = 15 min */
