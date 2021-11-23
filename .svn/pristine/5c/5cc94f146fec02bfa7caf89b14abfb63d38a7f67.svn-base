@@ -1,0 +1,138 @@
+*** October 2019 - -MMM- & MT
+This is a working version of the document for the new v3 format for log_mm_complete, focused to
+remove legacy information support and adapt it the latest RTP/RTCP classification in Tstat
+Changes:
+- Since we are logging separate stats for SSRC, connections are split (again, since v1), in multiple
+  lines, one per SSRC.
+- The protocol type would be useless, since we are currently supporting only UDP classification
+- A mix of RTP/RTCP/DTLS/STUN/TURN/ZRTP is permitted over the same UDP flow, according to RFC7983, 
+  and we track it in a bitmask
+- We trace the multiple Payload Types for each SSRC, and count separately their packets (other stats
+  are still per-SSRC)
+- even/odd port requirements are relaxed for RTP/RTCP, but ports larger than 1024 are still required 
+  (Netbios  port 137 would be a common false positive for RTCP)
+
+The text below is mostly the original one, with corrections to remove TCP references.
+
+-----------------------------------------------------------------------------------
+
+Tstat produces a "log_mm_complete" reporting statistics for the RTP and RTCP flows. 
+The classification process exploits a finite state machine that perform checks 
+of version field, sequence numbers and payload types. In particupar,
+if in the first UDP packet:
+
+* the version field is set to 2
+* the payload type field has an admissible values (for RTP or for RTCP)
+* the UDP ports are larger than 1024  
+
+the flow is marked as possible RTP/RTCP flow (FIRST_RTP/FIRST_RTCP).
+When the second UDP segment of this UDP flow (same IP/ports) is observed, 
+then Tstat double checks if it still be interpreted as RTP/RTCP payload controlling if
+
+* the version is equal to 2
+* a subflow with the same ssrc is already present
+* the seqno is the expected one for the ssrc subflow
+
+If checks succede, then the flows is marked as RTP and its analysis may start.
+Any time a new ssrc subflow is found, a new record is allocated for its stats.
+
+For RTCP flows, a simpler heuristic is used:
+
+* the version must be equal to 2
+* the payload type must be a correct one
+* the UDP ports are larger than 1024 and are even/odd for RTP/RTCP. 
+
+If so, the flow is considered a RTCP flow and its analysis may start.
+
+Due to the current multiplexing of several protocols over the same flow, the procotols are
+currently classified as RTP+ (RTP_PLUS).
+
+
+########################################################################################################
+# Col   # Short Description# Unit  # Long Description                                        # Protocol
+########################################################################################################
+#  1    # L7 Proto         # R/T   # R = RTP, T = RTCP                                        # All
+#  2    # Direction        # C/S   # Flow direction C (C->S) or S (S->C)
+#  3    # Client Protocol  # 29/0  # 29 = RTP+, 0 = Unclassified                              # All
+#  4    # Client IP        # -     # Client  IP addresses                              # All
+#  5    # Client port      # -     # TCP/UDP port addresses for the Client            # All
+#  6    # C Internal       # 0/1   # 1 = internal ip                                         # All
+#  7    # C Crypto         # 0/1   # 1 = encrypted ip                                        # All
+#  8    # C Mux Protocols  # -     # Multiplexed protocols [*] bitmask
+#  9    # Server Protocol  # 29/0  # 29 = RTP+, 0 = Unclassified                     # All
+# 10    # Server IP        # -     # Server IP addresses                              # All
+# 11    # Server port      # -     # TCP/UDP port addresses for the Server            # All
+# 12    # S Internal       # 0/1   # 1 = internal ip                                         # All
+# 13    # S Crypto         # 0/1   # 1 = encrypted ip                                        # All
+# 14    # S Mux Protocols  # -     # Multiplexed protocols [*] bitmask
+# 15    # Packets          # -     # Number of packets Tstat has seen belonging to the flow  # All
+# 16    # IPG              # ms    # Inter Packet Gap (IPG)                                  # All
+# 17    # Jitter AVG       # ms/ts # Jitter (average):                                       #
+#       #                  #       # - if RTP, computed by Tstat as in RFC3550 [ms]          #
+#       #                  #       # - if RTCP, extracted from the RTCP header [codec timestamps units]; #
+#       #                  #       # - if TCP, computed using only data packets [ms]         # All
+# 18    # Jitter Max       # ms/ts # Jitter (max)                                            #
+#       #                  #       # - if RTP, computed by Tstat as in RFC3550 [ms]          #
+#       #                  #       # - if RTCP, extracted from the RTCP header [codec timestamps units]
+#       #                  #       # - if TCP, computed using only data packets [ms]         # All
+# 19    # Jitter Min       # ms/ts # Jitter (min)                                            #
+#       #                  #       # - if RTP, computed by Tstat as in RFC3550 [ms]          #
+#       #                  #       # - if RTCP, extracted from the RTCP header [codec timestamps units]
+#       #                  #       # - if TCP, computed using only data packets [ms]         # All
+# 20    # TTL AVG          # -     # Time to live (TTL) (average)                            # All
+# 21    # TTL Max          # -     # Time to live (TTL) (max)                                # All
+# 22    # TTL Min          # -     # Time to live (TTL) (min)                                # All
+# 23    # Start            # s     # Start time                                              # All
+# 24    # Duration         # s     # Duration                                                # All
+# 25    # Data             # bytes # Data transfered                                         # All
+# 26    # Bitrate          # bit/s # Average speed [bit/s]                                   # All
+# 27    # SSRC             # -     # SSRC                                                    # RTP, RTCP
+# 28    # Lost pkts        # -     # Lost packets, computed by Tstat using a window based algorithm  # RTP
+# 29    # Out of seq. pkts # -     # Out of sequence packets computed by Tstat computed by Tstat using a window based algorithm  # TCP,RTP
+# 30    # Dup pkts         # -     # Duplicate packets computed by Tstat                     #
+#       #                  #       # - if RTP, computed by Tstat using a window based algorithm
+#       #                  #       # - if TCP, computed as retrasmissions                    # TCP,RTP
+# 31    # Late pkts        # -     # Late packets computed by Tstat computed by Tstat using a window based algorithm    #  RTP
+# 32    # RTP PT list      # -     # List of RTP payload type for the SSRC                   # RTP
+# 33    # RTP PT pkts list # -     # List of RTP packes for each payload type (same order)
+# 34    # Reset            # -     # Bogus reset                                             # RTP
+# 35    # Cum lost pkts    # -     # Cumulative packet loss:                                 #
+#       #                  #       # - each lost packets increments this counter,            #
+#       #                  #       # - each duplicated packets decremnets it from RTCP       # RTCP
+# 36    # Frac lost pkts   # -     # Extracted from the RTCP header [%]                      # RTCP
+# 37    # Flow length      # -     # Associated RTP flow length                              # RTCP
+# 38    # Flow length      # bytes # Associated RTP flow length                              # RTCP
+# 39    # RTT AVG          # ms    # Round Trip Time (RTT) (average)                         # TCP, RTCP
+# 40    # RTT Max          # ms    # Round Trip Time (RTT) (max)                             # TCP, RTCP
+# 41    # RTT Min          # ms    # Round Trip Time (RTT) (min)                             # TCP, RTCP
+# 42    # RTT              # ms    # Round Trip Time (RTT) (samples)                         # TCP, RTCP
+# 43    # Truncated RTCP header # - # Truncated RTCP header                                  # RTCP
+###########################################################################################################
+# 44    # RTP Max Payload  # bytes # RTP payload max                                         # RTP
+# 45    # RTP Min Payload  # bytes # RTP payload min                                         # RTP
+# 46    # RTP Avg Payload  # bytes # RTP payload average                                     # RTP
+# 47    # RTP Stdev Payload# bytes # RTP payload standard deviation                          # RTP
+##########################################################################################################
+# 48    # Jitter 8k Avg    # ms    # Jitter (average), as for 8000 Hz Audio (RFC3550)        # RTP
+# 49    # Jitter 8k Max    # ms    # Jitter (max), as for 8000 Hz Audio (RFC3550)            # RTP
+# 50    # Jitter 8k Min    # ms    # Jitter (min), as for 8000 Hz Audio (RFC3550)            # RTP
+# 51    # Jitter 8k Avg    # ms    # Jitter (average), as for 90000 Hz Video (RFC3550)       # RTP
+# 52    # Jitter 8k Max    # ms    # Jitter (max), as for 90000 Hz Video (RFC3550)           # RTP
+# 53    # Jitter 8k Min    # ms    # Jitter (min), as for 90000 Hz Video (RFC3550)           # RTP
+##########################################################################################################
+
+
+[*] Multiplexed Protocols according to RFC7983
+   XXXXXXXX
+     ^^^^^^
+     ||||||____ RTP
+     |||||_____ RTCP
+     ||||______ DTLS
+     |||_______ STUN
+     ||________ TURN
+     |_________ ZRTP
+    ^__________ MTURN (Not in RFC7983, bit added if MTURN were ever muxed with the other flows)
+     
+ No bit set (0) means "No protocol/Unknown", while the other bits are set to 1 when a packet for that type is registered for on the flow.
+ Common values should be 1 (RTP), 3 (RTP/RTCP), 7 (RTP/RTCP/DTLS), 11 (RTP/RTCP/STUN), and 15 (RTP/RTCP/DTLS/STUN).
+ 

@@ -1,0 +1,59 @@
+Log_DNS and LDNS
+
+The parsing of the DNS information in TSTAT to generate the log_dns is based on the
+usage of the LDNS library (https://www.nlnetlabs.nl/projects/ldns/about/)
+
+Since it is not a standard library in many Linux distributions, the log_dns features 
+are not included by default in Tstat, but must be enabled at compilation time, using
+the 'configure' --enable_dns command line option.
+
+'ldns' and 'ldns-devel' distribution packages are available for the most popular Linux
+distributions, otherwise the library can be installed from the source code.
+If the library and the includes are in the default system locations, the command
+
+./configure --enable_dns
+
+should succeed, reporting, for example
+
+ $ ./configure --enable-ldns
+ [ ... verbose configure information ... ]
+ -------------------------------------------------
+   tstat Version 3.2.0
+   -lpcap -lpthread -lm  -lrrd -lldns
+
+   Prefix: '/usr/local'
+
+   Package features:
+    - pcap      yes
+    - zlib      no
+    - rrd       yes
+    - ldns      yes
+    - libtstat  no
+    - rrdthread no
+ --------------------------------------------------
+ $
+
+If there is any issue or the files are not in the default locations, the 'configure' 
+command will fail.
+
+As a reference for a non standard installation, when Tstat is compiled on MacOS, 
+the ldns package is not normally not available.
+It can be installed, for example, using MacPort ('port install ldns') but the libraries 
+will be in a non-standard location, so information must be provided to 'configure' to find
+them
+
+ $ CFLAGS="-I/opt/local/include/" LDFLAGS="-L/opt/local/lib/" \
+   CPPFLAGS="-I/opt/local/include/" ./configure --enable-ldns
+
+Other system might require different options to let 'configure' fully locate all the
+LDNS dependencies.
+
+Using the '-v' Tstat command line option it is possible to know if LDNS has been included in
+the current runtime or not.
+
+ $ tstat -v
+
+ Version: TNG tstat-3.2.0 (Krakatoa flavor) -- Thu Nov 29 18:35:05 CET 2018
+ Compiled by <master>, the <date> on machine <machine> with IPv6 support 
+ and with LDNS (log_dns) support
+ 
