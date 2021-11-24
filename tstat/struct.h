@@ -650,6 +650,8 @@ enum tls_category
   TLS_UCLOUVAIN,      /* 9 - UCLouvain */
   TLS_REDDIT,         /* 10 - Reddit */
   TLS_GITHUB,         /* 11 - Github */
+  TLS_GITLAB,         /* 12 - Gitlab */
+  TLS_STACKOVERFLOW,  /* 13 - StackOverflow */
   TLS_LAST_TYPE
 };
 
